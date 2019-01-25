@@ -1,0 +1,90 @@
+{
+  "groups": [
+    {
+      "name": "cupid",
+      "type": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "cupid.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enabled",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "defaultValue": t
+    },
+    {
+      "name": "cupid.data-center-code",
+      "type": "java.lang.String",
+      "description": "Data center code",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties"
+    },
+    {
+      "name": "cupid.data-center-name",
+      "type": "java.lang.String",
+      "description": "Data center name",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties"
+    },
+    {
+      "name": "cupid.data-center-bits",
+      "type": "java.lang.Integer",
+      "description": "Data center bits(Default 2 bits)",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "defaultValue": 2
+    },
+    {
+      "name": "cupid.worker-bits",
+      "type": "java.lang.Integer",
+      "description": "Worker bits(Default 2 bits)",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "defaultValue": 2
+    },
+    {
+      "name": "cupid.counter-bits",
+      "type": "java.lang.Integer",
+      "description": "Counter bits(Default 8 bits)",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "defaultValue": 8
+    },
+    {
+      "name": "cupid.reset-level",
+      "type": "com.yue.cupid.generator.BizIdGenerator$Level",
+      "description": "Reset level(Default daily reset)",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "defaultValue": "day"
+    },
+    {
+      "name": "cupid.date-level",
+      "type": "com.yue.cupid.generator.BizIdGenerator$Level",
+      "description": "Date level(Default output second)",
+      "sourceType": "com.yue.cupid.spring.boot.autoconfigure.properties.CupidProperties",
+      "defaultValue": "second"
+    },
+    {
+      "name": "cupid.db.driver-class-name",
+      "type": "java.lang.String",
+      "description": "Database driver class name",
+      "sourceType": "com.yue.cupid.generator.MachineCodeGenerator4DB$Database"
+    },
+    {
+      "name": "cupid.db.url",
+      "type": "java.lang.String",
+      "description": "Database url",
+      "sourceType": "com.yue.cupid.generator.MachineCodeGenerator4DB$Database"
+    },
+    {
+      "name": "cupid.db.username",
+      "type": "java.lang.String",
+      "description": "Database username",
+      "sourceType": "com.yue.cupid.generator.MachineCodeGenerator4DB$Database"
+    },
+    {
+      "name": "cupid.db.password",
+      "type": "java.lang.String",
+      "description": "Database password",
+      "sourceType": "com.yue.cupid.generator.MachineCodeGenerator4DB$Database"
+    }
+  ],
+  "hints": []
+}
