@@ -93,7 +93,7 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
     /**
      * 生成机器码
      */
-    public void generate() throws SQLException {
+    public void generate() throws Exception {
         this.transactionTaskActuator(() -> {
             DataCenterRecord dataCenterRecord = this.getDataCenterRecord();
 
@@ -130,7 +130,7 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
     /**
      * 销毁机器码
      */
-    public void destroy() throws SQLException {
+    public void destroy() throws Exception {
         this.transactionTaskActuator(() -> {
             this.jdbcTemplate.update(UPDATE_DATA_CENTER_RECORD_4_DESTROY, this.dataCenterId);
             this.jdbcTemplate.update(DELETE_WORKER_RECORD, this.workerId, this.dataCenterId);
@@ -208,7 +208,7 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
      * @param task 任务
      * @throws SQLException SQL异常
      */
-    private void transactionTaskActuator(TransactionTask task) throws SQLException {
+    private void transactionTaskActuator(TransactionTask task) throws Exception {
         Connection connection = this.jdbcTemplate.getDataSource().getConnection();
         try {
             connection.setAutoCommit(false);
@@ -216,6 +216,7 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
             connection.commit();
         } catch (Exception e) {
             connection.rollback();
+            throw e;
         } finally {
             connection.setAutoCommit(true);
         }

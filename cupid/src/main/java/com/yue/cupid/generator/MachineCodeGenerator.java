@@ -2,8 +2,6 @@ package com.yue.cupid.generator;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.SQLException;
-
 /**
  * @author Yue
  * @since 2019/01/15
@@ -46,12 +44,12 @@ public abstract class MachineCodeGenerator {
     /**
      * 生成机器码
      */
-    public abstract void generate() throws SQLException;
+    public abstract void generate() throws Exception;
 
     /**
      * 销毁机器码
      */
-    public void destroy() throws SQLException {
+    public void destroy() throws Exception {
         log.info("{} Destroy machine code - {}", LOG_PREFIX, this.machineCode);
     }
 
