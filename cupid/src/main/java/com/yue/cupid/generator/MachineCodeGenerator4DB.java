@@ -7,10 +7,13 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -25,52 +28,59 @@ import java.util.TreeSet;
 @Slf4j
 public class MachineCodeGenerator4DB extends MachineCodeGenerator {
 
-    private static final String SELECT_DATA_CENTER_RECORD = "SELECT " +
-            "`DATA_CENTER_ID`, `CURRENT_WORKER_COUNT`, `TOTAL_START_COUNT`, " +
-            "`DAY_START_COUNT`, `LAST_START_DATE` " +
-            "FROM " +
-            "`DATA_CENTER_RECORD` " +
-            "WHERE " +
-            "`DATA_CENTER_CODE` = ? " +
-            "LIMIT 1 " +
-            "FOR UPDATE";
-    private static final String SELECT_EXIST_DATA_CENTER_ID = "SELECT " +
-            "`DATA_CENTER_ID` " +
-            "FROM " +
-            "`DATA_CENTER_RECORD`";
-    private static final String INSERT_DATA_CENTER_RECORD = "INSERT IGNORE INTO " +
-            "`DATA_CENTER_RECORD` " +
-            "(`DATA_CENTER_ID`, `DATA_CENTER_CODE`, `DATA_CENTER_NAME`, " +
-            "`CURRENT_WORKER_COUNT`, `TOTAL_START_COUNT`, `DAY_START_COUNT`) " +
-            "VALUES " +
+    private static final String SELECT_DATA_CENTER_RECORD = "select " +
+            "`data_center_id`, `current_worker_count`, `total_start_count`, " +
+            "`day_start_count`, `last_start_date` " +
+            "from " +
+            "`data_center_record` " +
+            "where " +
+            "`data_center_code` = ? " +
+            "limit 1 " +
+            "for update";
+    private static final String SELECT_EXIST_DATA_CENTER_ID = "select " +
+            "`data_center_id` " +
+            "from " +
+            "`data_center_record`";
+    private static final String INSERT_DATA_CENTER_RECORD = "insert ignore into " +
+            "`data_center_record` " +
+            "(`data_center_id`, `data_center_code`, `data_center_name`, " +
+            "`current_worker_count`, `total_start_count`, `day_start_count`) " +
+            "values " +
             "(?, ?, ?, ?, ?, ?)";
-    private static final String UPDATE_DATA_CENTER_RECORD_4_GENERATE = "UPDATE " +
-            "`DATA_CENTER_RECORD` " +
-            "SET " +
-            "`CURRENT_WORKER_COUNT` = `CURRENT_WORKER_COUNT` + 1, `TOTAL_START_COUNT` = `TOTAL_START_COUNT` + 1, `DAY_START_COUNT` = ?, " +
-            "`LAST_START_DATE` = ? " +
-            "WHERE " +
-            "`DATA_CENTER_ID` = ?";
-    private static final String INSERT_WORKER_RECORD = "INSERT INTO " +
-            "`WORKER_RECORD` " +
-            "(`WORKER_ID`, `DATA_CENTER_ID`, `WORKER_CODE`, " +
-            "`WORKER_NAME`, `WORKER_HOST`) " +
-            "VALUES " +
+    private static final String UPDATE_DATA_CENTER_RECORD_4_GENERATE = "update " +
+            "`data_center_record` " +
+            "set " +
+            "`current_worker_count` = `current_worker_count` + 1, `total_start_count` = `total_start_count` + 1, `day_start_count` = ?, " +
+            "`last_start_date` = ? " +
+            "where " +
+            "`data_center_id` = ?";
+    private static final String SELECT_EXIST_WORKER_ID = "select " +
+            "`worker_id` " +
+            "from " +
+            "`worker_record` " +
+            "where " +
+            "`data_center_id` = ?";
+    private static final String INSERT_WORKER_RECORD = "insert into " +
+            "`worker_record` " +
+            "(`worker_id`, `data_center_id`, `worker_code`, " +
+            "`worker_name`, `worker_host`) " +
+            "values " +
             "(?, ?, ?, ?, ?)";
-    private static final String UPDATE_DATA_CENTER_RECORD_4_DESTROY = "UPDATE " +
-            "`DATA_CENTER_RECORD` " +
-            "SET " +
-            "`CURRENT_WORKER_COUNT` = `CURRENT_WORKER_COUNT` - 1 " +
-            "WHERE " +
-            "`DATA_CENTER_ID` = ?";
-    private static final String DELETE_WORKER_RECORD = "DELETE FROM " +
-            "`WORKER_RECORD` " +
-            "WHERE " +
-            "`WORKER_ID` = ? " +
-            "AND " +
-            "`DATA_CENTER_ID` = ?";
+    private static final String UPDATE_DATA_CENTER_RECORD_4_DESTROY = "update " +
+            "`data_center_record` " +
+            "set " +
+            "`current_worker_count` = `current_worker_count` - 1 " +
+            "where " +
+            "`data_center_id` = ?";
+    private static final String DELETE_WORKER_RECORD = "delete from " +
+            "`worker_record` " +
+            "where " +
+            "`worker_id` = ? " +
+            "and " +
+            "`data_center_id` = ?";
 
     private JdbcTemplate jdbcTemplate;
+    private PlatformTransactionManager transactionManager;
 
     public MachineCodeGenerator4DB(String dataCenterCode, String dataCenterName, Database db) {
         this.init(dataCenterCode, dataCenterName, db);
@@ -99,7 +109,7 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
 
             int currentWorkerCount = dataCenterRecord.getCurrentWorkerCount();
             int maxWorkerId = this.getMaxWorkerId();
-            if (currentWorkerCount == maxWorkerId) {
+            if ((currentWorkerCount - 1) == maxWorkerId) {
                 throw new MachineCodeException(String.format("Worker can't be greater than %d", maxWorkerId));
             }
 
@@ -116,7 +126,17 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
 
             this.jdbcTemplate.update(UPDATE_DATA_CENTER_RECORD_4_GENERATE, dayStartCount, currentDate, dataCenterId);
 
-            int workerId = (int) (dataCenterRecord.getTotalStartCount() % (maxWorkerId + 1));
+            Set<Integer> existWorkerIds = new HashSet<>(this.jdbcTemplate.queryForList(SELECT_EXIST_WORKER_ID, Integer.class, dataCenterId));
+
+            TreeSet<Integer> allWorkerIds = new TreeSet<>();
+
+            for (int i = 0; i <= maxWorkerId; i++) {
+                allWorkerIds.add(i);
+            }
+
+            allWorkerIds.removeAll(existWorkerIds);
+
+            int workerId = allWorkerIds.pollFirst();
             String workerCode = this.dataCenterCode + ":" + workerId;
             String workerName = this.dataCenterName + ":" + workerId + "号工作者";
             String workerHost = MachineIpUtil.getHost();
@@ -156,7 +176,7 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
 
                 int currentDataCenterCount = existDataCenterIds.size();
                 int maxDataCenterId = this.getMaxDataCenterId();
-                if (currentDataCenterCount == maxDataCenterId) {
+                if ((currentDataCenterCount - 1) == maxDataCenterId) {
                     throw new MachineCodeException(String.format("Data center can't be greater than %d", maxDataCenterId));
                 }
 
@@ -169,8 +189,9 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
 
             int dataCenterId = allDataCenterIds.pollFirst();
 
-            this.jdbcTemplate.update(INSERT_DATA_CENTER_RECORD, dataCenterId, this.dataCenterCode, this.dataCenterName, 0, 0L, 0L);
-            dataCenterRecords = this.jdbcTemplate.query(SELECT_DATA_CENTER_RECORD, new BeanPropertyRowMapper<>(DataCenterRecord.class), this.dataCenterCode);
+            if (this.jdbcTemplate.update(INSERT_DATA_CENTER_RECORD, dataCenterId, this.dataCenterCode, this.dataCenterName, 0, 0L, 0L) == 1) {
+                dataCenterRecords = this.jdbcTemplate.query(SELECT_DATA_CENTER_RECORD, new BeanPropertyRowMapper<>(DataCenterRecord.class), this.dataCenterCode);
+            }
         }
         return dataCenterRecords.get(0);
     }
@@ -200,26 +221,23 @@ public class MachineCodeGenerator4DB extends MachineCodeGenerator {
         dataSource.setUsername(db.getUsername());
         dataSource.setPassword(db.getPassword());
         this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.transactionManager = new DataSourceTransactionManager(dataSource);
     }
 
     /**
      * 事务任务执行器
      *
      * @param task 任务
-     * @throws SQLException SQL异常
      */
     private void transactionTaskActuator(TransactionTask task) throws Exception {
-        Connection connection = this.jdbcTemplate.getDataSource().getConnection();
+        TransactionStatus status = this.transactionManager.getTransaction(new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_REQUIRES_NEW));
         try {
-            connection.setAutoCommit(false);
             task.execute();
-            connection.commit();
         } catch (Exception e) {
-            connection.rollback();
+            this.transactionManager.rollback(status);
             throw e;
-        } finally {
-            connection.setAutoCommit(true);
         }
+        this.transactionManager.commit(status);
     }
 
     @Data
